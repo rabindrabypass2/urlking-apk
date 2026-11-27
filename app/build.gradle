@@ -10,8 +10,8 @@ android {
         applicationId "com.rabindra.urlking"
         minSdk 21
         targetSdk 34
-        versionCode 37
-        versionName "3.16"
+        versionCode 38
+        versionName "3.17"
     }
 
     buildTypes {
