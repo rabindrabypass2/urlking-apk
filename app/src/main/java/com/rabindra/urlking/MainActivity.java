@@ -50,7 +50,7 @@ public class MainActivity extends AppCompatActivity {
     private ProgressBar progressBar;
     private PowerManager.WakeLock wakeLock;
 
-    private static final String TARGET_URL = "https://urlking.in/9c7b1e";
+    private static final String TARGET_URL = "https://urlking.in/b0f761";
     private static final Random RANDOM = new Random();
 
     // Paired Per-Cycle Device Profiles (UA + CPU + RAM + GPU + Screen) so every IP rotation gets a unique, internally consistent browser fingerprint
