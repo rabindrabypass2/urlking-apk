@@ -14,8 +14,8 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.PowerManager;
 import android.view.View;
+import android.webkit.ConsoleMessage;
 import android.webkit.CookieManager;
-import android.webkit.JavascriptInterface;
 import android.webkit.JsPromptResult;
 import android.webkit.JsResult;
 import android.webkit.SslErrorHandler;
@@ -45,6 +45,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -138,49 +140,86 @@ public class MainActivity extends AppCompatActivity {
         String safeVendor = p.gpuVendor.replace("'", "");
         String safeRenderer = p.gpuRenderer.replace("'", "");
 
+        String androidVer = "14";
+        String deviceModel = "Pixel 8 Pro";
+        String chromeFull = "131.0.6778.135";
+        String chromeMajor = "131";
+        Matcher mVer = Pattern.compile("Android (\\d+); ([^)]+)\\)").matcher(p.ua);
+        if (mVer.find()) {
+            androidVer = mVer.group(1).replace("'", "");
+            deviceModel = mVer.group(2).replace("'", "");
+        }
+        Matcher mChr = Pattern.compile("Chrome/(\\d+)\\.([\\d.]+)").matcher(p.ua);
+        if (mChr.find()) {
+            chromeMajor = mChr.group(1);
+            chromeFull = chromeMajor + "." + mChr.group(2);
+        }
+        String dpr = (p.screenW >= 412) ? "2.625" : (p.screenW >= 390 ? "3.0" : "2.0");
+
         currentSpoofJs =
             "(function(){" +
             "try{" +
-            "if(window.__fp_applied)return;" +
-            "window.__fp_applied=true;" +
-            "Object.defineProperty(navigator,'webdriver',{get:function(){return false;},configurable:true});" +
-            "Object.defineProperty(navigator,'hardwareConcurrency',{get:function(){return " + p.cores + ";},configurable:true});" +
-            "Object.defineProperty(navigator,'deviceMemory',{get:function(){return " + p.memGb + ";},configurable:true});" +
-            "Object.defineProperty(navigator,'maxTouchPoints',{get:function(){return " + touchPts + ";},configurable:true});" +
-            "try{" +
-            "Object.defineProperty(screen,'width',{get:function(){return " + p.screenW + ";},configurable:true});" +
-            "Object.defineProperty(screen,'height',{get:function(){return " + p.screenH + ";},configurable:true});" +
-            "Object.defineProperty(screen,'availWidth',{get:function(){return " + p.screenW + ";},configurable:true});" +
-            "Object.defineProperty(screen,'availHeight',{get:function(){return " + (p.screenH - 48) + ";},configurable:true});" +
-            "}catch(e){}" +
+            "var _sf=Symbol.for('_uk_fp');" +
+            "if(window[_sf])return;" +
+            "window[_sf]=1;" +
+            "var _nm=new WeakMap();" +
+            "var _ots=Function.prototype.toString;" +
+            "var _nts=function toString(){if(typeof this==='function'&&_nm.has(this)){return 'function '+_nm.get(this)+'() { [native code] }';}return _ots.call(this);};" +
+            "_nm.set(_nts,'toString');" +
+            "try{Object.defineProperty(Function.prototype,'toString',{value:_nts,writable:true,configurable:true});}catch(e){}" +
+            "function _mk(fn,n){try{_nm.set(fn,n);}catch(e){}return fn;}" +
+            "function _def(obj,prop,fn,gName){try{_mk(fn,'get '+gName);Object.defineProperty(obj,prop,{get:fn,enumerable:true,configurable:true});}catch(e){}}" +
+            "var _np=typeof Navigator!=='undefined'?Navigator.prototype:navigator;" +
+            "_def(_np,'webdriver',function(){return false;},'webdriver');" +
+            "_def(_np,'hardwareConcurrency',function(){return " + p.cores + ";},'hardwareConcurrency');" +
+            "_def(_np,'deviceMemory',function(){return " + p.memGb + ";},'deviceMemory');" +
+            "_def(_np,'maxTouchPoints',function(){return " + touchPts + ";},'maxTouchPoints');" +
+            "_def(_np,'language',function(){return 'en-IN';},'language');" +
+            "_def(_np,'languages',function(){return['en-IN','en-US','en'];},'languages');" +
+            "var _conn={effectiveType:'4g',rtt:50,downlink:10,saveData:false,onchange:null};" +
+            "_def(_np,'connection',function(){return _conn;},'connection');" +
+            "var _uadBrands=[{brand:'Chromium',version:'" + chromeMajor + "'},{brand:'Google Chrome',version:'" + chromeMajor + "'},{brand:'Not-A.Brand',version:'24'}];" +
+            "var _uadFull=[{brand:'Chromium',version:'" + chromeFull + "'},{brand:'Google Chrome',version:'" + chromeFull + "'},{brand:'Not-A.Brand',version:'24.0.0.0'}];" +
+            "var _uad={brands:_uadBrands,mobile:true,platform:'Android'," +
+            "getHighEntropyValues:_mk(function(hints){return Promise.resolve({architecture:'',bitness:'',brands:_uadBrands,fullVersionList:_uadFull,mobile:true,model:'" + deviceModel + "',platform:'Android',platformVersion:'" + androidVer + ".0.0',uaFullVersion:'" + chromeFull + "',wow64:false});},'getHighEntropyValues')," +
+            "toJSON:_mk(function(){return{brands:_uadBrands,mobile:true,platform:'Android'};},'toJSON')};" +
+            "_def(_np,'userAgentData',function(){return _uad;},'userAgentData');" +
+            "var _sp=typeof Screen!=='undefined'?Screen.prototype:screen;" +
+            "_def(_sp,'width',function(){return " + p.screenW + ";},'width');" +
+            "_def(_sp,'height',function(){return " + p.screenH + ";},'height');" +
+            "_def(_sp,'availWidth',function(){return " + p.screenW + ";},'availWidth');" +
+            "_def(_sp,'availHeight',function(){return " + (p.screenH - 48) + ";},'availHeight');" +
+            "_def(_sp,'colorDepth',function(){return 24;},'colorDepth');" +
+            "_def(_sp,'pixelDepth',function(){return 24;},'pixelDepth');" +
+            "_def(window,'devicePixelRatio',function(){return " + dpr + ";},'devicePixelRatio');" +
             "if(!window.chrome){" +
             "window.chrome={" +
-            "runtime:{id:undefined,connect:function(){},sendMessage:function(){},onMessage:{addListener:function(){}}}," +
-            "loadTimes:function(){return{requestTime:0,startLoadTime:0,commitLoadTime:0,finishDocumentLoadTime:0,finishLoadTime:0,firstPaintTime:0,navigationType:'Other',wasFetchedViaSpdy:false,wasNpnNegotiated:false,npnNegotiatedProtocol:'',wasAlternateProtocolAvailable:false,connectionInfo:'http/1.1'};}," +
-            "csi:function(){return{startE:Date.now(),onloadT:Date.now(),pageT:0,tran:15};}," +
-            "app:{isInstalled:false,getDetails:function(){},getIsInstalled:function(){},installState:function(){},runningState:function(){return 'cannot_run';}},tabs:{}" +
+            "runtime:{id:undefined,connect:_mk(function(){},'connect'),sendMessage:_mk(function(){},'sendMessage'),onMessage:{addListener:_mk(function(){},'addListener')}}," +
+            "loadTimes:_mk(function(){return{requestTime:0,startLoadTime:0,commitLoadTime:0,finishDocumentLoadTime:0,finishLoadTime:0,firstPaintTime:0,navigationType:'Other',wasFetchedViaSpdy:false,wasNpnNegotiated:false,npnNegotiatedProtocol:'',wasAlternateProtocolAvailable:false,connectionInfo:'http/1.1'};},'loadTimes')," +
+            "csi:_mk(function(){return{startE:Date.now(),onloadT:Date.now(),pageT:0,tran:15};},'csi')," +
+            "app:{isInstalled:false,getDetails:_mk(function(){},'getDetails'),getIsInstalled:_mk(function(){},'getIsInstalled'),installState:_mk(function(){},'installState'),runningState:_mk(function(){return 'cannot_run';},'runningState')},tabs:{}" +
             "};}" +
-            "try{Object.defineProperty(navigator,'plugins',{get:function(){var a=[{name:'Chrome PDF Plugin',filename:'internal-pdf-viewer',description:'Portable Document Format'},{name:'Chrome PDF Viewer',filename:'mhjfbmdgcfjbbpaeojofohoefgiehjai',description:''}];a.refresh=function(){};return a;},configurable:true});}catch(e){}" +
-            "try{Object.defineProperty(navigator,'languages',{get:function(){return['en-IN','en-US','en'];},configurable:true});}catch(e){}" +
+            "_def(_np,'plugins',function(){var a=[{name:'Chrome PDF Plugin',filename:'internal-pdf-viewer',description:'Portable Document Format'},{name:'Chrome PDF Viewer',filename:'mhjfbmdgcfjbbpaeojofohoefgiehjai',description:''}];a.refresh=function(){};return a;},'plugins');" +
             "try{" +
             "var _gp1=WebGLRenderingContext.prototype.getParameter;" +
-            "WebGLRenderingContext.prototype.getParameter=function(param){if(param===0x9245)return '" + safeVendor + "';if(param===0x9246)return '" + safeRenderer + "';return _gp1.apply(this,arguments);};" +
-            "if(window.WebGL2RenderingContext){var _gp2=WebGL2RenderingContext.prototype.getParameter;WebGL2RenderingContext.prototype.getParameter=function(param){if(param===0x9245)return '" + safeVendor + "';if(param===0x9246)return '" + safeRenderer + "';return _gp2.apply(this,arguments);};}" +
+            "WebGLRenderingContext.prototype.getParameter=_mk(function(param){if(param===0x9245)return '" + safeVendor + "';if(param===0x9246)return '" + safeRenderer + "';return _gp1.apply(this,arguments);},'getParameter');" +
+            "if(window.WebGL2RenderingContext){var _gp2=WebGL2RenderingContext.prototype.getParameter;WebGL2RenderingContext.prototype.getParameter=_mk(function(param){if(param===0x9245)return '" + safeVendor + "';if(param===0x9246)return '" + safeRenderer + "';return _gp2.apply(this,arguments);},'getParameter');}" +
             "}catch(e){}" +
             "try{" +
             "var _td=HTMLCanvasElement.prototype.toDataURL;" +
-            "HTMLCanvasElement.prototype.toDataURL=function(){try{var c=this.getContext('2d');if(c&&this.width>0&&this.height>0){var d=c.getImageData(0,0,Math.min(8,this.width),Math.min(8,this.height));if(d&&d.data.length>4){d.data[" + canvasCh + "]=(d.data[" + canvasCh + "]^" + canvasXor + ");c.putImageData(d,0,0);}}}catch(e){}return _td.apply(this,arguments);};" +
+            "HTMLCanvasElement.prototype.toDataURL=_mk(function(){try{if(this.width>0&&this.height>0){var tmp=document.createElement('canvas');tmp.width=this.width;tmp.height=this.height;var tc=tmp.getContext('2d');if(tc){tc.drawImage(this,0,0);var d=tc.getImageData(0,0,Math.min(8,tmp.width),Math.min(8,tmp.height));if(d&&d.data.length>4){d.data[" + canvasCh + "]=(d.data[" + canvasCh + "]^" + canvasXor + ");tc.putImageData(d,0,0);return _td.apply(tmp,arguments);}}}}catch(e){}return _td.apply(this,arguments);},'toDataURL');" +
             "}catch(e){}" +
             "try{" +
-            "Object.defineProperty(document,'hidden',{get:function(){return false;},configurable:true});" +
-            "Object.defineProperty(document,'webkitHidden',{get:function(){return false;},configurable:true});" +
-            "Object.defineProperty(document,'visibilityState',{get:function(){return 'visible';},configurable:true});" +
-            "document.hasFocus=function(){return true;};" +
-            "var _wal=window.addEventListener;window.addEventListener=function(t,l,o){if(t==='visibilitychange'||t==='webkitvisibilitychange'||t==='pagehide')return;return _wal.call(this,t,l,o);};" +
-            "var _dal=document.addEventListener;document.addEventListener=function(t,l,o){if(t==='visibilitychange'||t==='webkitvisibilitychange'||t==='pagehide')return;return _dal.call(this,t,l,o);};" +
+            "var _dp=typeof Document!=='undefined'?Document.prototype:document;" +
+            "_def(_dp,'hidden',function(){return false;},'hidden');" +
+            "_def(_dp,'webkitHidden',function(){return false;},'webkitHidden');" +
+            "_def(_dp,'visibilityState',function(){return 'visible';},'visibilityState');" +
+            "document.hasFocus=_mk(function(){return true;},'hasFocus');" +
+            "var _wal=window.addEventListener;window.addEventListener=_mk(function(t,l,o){if(t==='visibilitychange'||t==='webkitvisibilitychange'||t==='pagehide')return;return _wal.call(this,t,l,o);},'addEventListener');" +
+            "var _dal=document.addEventListener;document.addEventListener=_mk(function(t,l,o){if(t==='visibilitychange'||t==='webkitvisibilitychange'||t==='pagehide')return;return _dal.call(this,t,l,o);},'addEventListener');" +
             "}catch(e){}" +
             "try{" +
-            "if(window.AudioBuffer&&AudioBuffer.prototype.getChannelData){var _acd=AudioBuffer.prototype.getChannelData;AudioBuffer.prototype.getChannelData=function(){var r=_acd.apply(this,arguments);try{if(r&&r.length>0&&!r.__fp){r.__fp=true;r[0]=r[0]+" + audioDelta + ";}}catch(e){}return r;};}" +
+            "if(window.AudioBuffer&&AudioBuffer.prototype.getChannelData){var _acd=AudioBuffer.prototype.getChannelData;AudioBuffer.prototype.getChannelData=_mk(function(){var r=_acd.apply(this,arguments);try{if(r&&r.length>0&&!r.__fp){Object.defineProperty(r,'__fp',{value:1,configurable:true});r[0]=r[0]+" + audioDelta + ";}}catch(e){}return r;},'getChannelData');}" +
             "}catch(e){}" +
             "}catch(ex){}" +
             "})();";
@@ -193,8 +232,16 @@ public class MainActivity extends AppCompatActivity {
     // 4. Captures MediaFire destination -> triggers root 4G/5G IP + device rotation
     private static final String SCRIPT_URLKING =
         "(function(){\n" +
-        "    if (window.__uk_injected) return;\n" +
-        "    window.__uk_injected = true;\n" +
+        "    var _si = Symbol.for('_uk_sc');\n" +
+        "    if (window[_si]) return;\n" +
+        "    window[_si] = 1;\n" +
+        "\n" +
+        "    var _emit = (function(){\n" +
+        "        var _cd = console.debug.bind(console);\n" +
+        "        return function(tag, val) {\n" +
+        "            try { _cd('__UK_BR__:' + tag + (val !== undefined ? ':' + val : '')); } catch(e){}\n" +
+        "        };\n" +
+        "    })();\n" +
         "\n" +
         "    // 1. Spoof Organic Telegram Referrer in DOM\n" +
         "    try {\n" +
@@ -232,9 +279,7 @@ public class MainActivity extends AppCompatActivity {
         "        if (!url || isMediafireFound) return;\n" +
         "        if (url.indexOf('mediafire.com') !== -1) {\n" +
         "            isMediafireFound = true;\n" +
-        "            if (window.AndroidBridge && typeof window.AndroidBridge.openDestination === 'function') {\n" +
-        "                window.AndroidBridge.openDestination(url);\n" +
-        "            }\n" +
+        "            _emit('DEST', url);\n" +
         "        }\n" +
         "    }\n" +
         "\n" +
@@ -292,9 +337,7 @@ public class MainActivity extends AppCompatActivity {
         "    // STAGE A: get.urlking.in (GET LINK PAGE)\n" +
         "    // ========================================================\n" +
         "    if (location.hostname === 'get.urlking.in') {\n" +
-        "        if (window.AndroidBridge && typeof window.AndroidBridge.onStatusUpdate === 'function') {\n" +
-        "            window.AndroidBridge.onStatusUpdate('GET LINK Page: Verifying timer...');\n" +
-        "        }\n" +
+        "        _emit('STATUS', 'GET LINK Page: Verifying timer...');\n" +
         "\n" +
         "        function isGetLinkReady() {\n" +
         "            var btn = document.getElementById('getLinkBtn');\n" +
@@ -318,14 +361,10 @@ public class MainActivity extends AppCompatActivity {
         "                clickPending = true;\n" +
         "\n" +
         "                var delay = 1000 + Math.floor(Math.random() * 800);\n" +
-        "                if (window.AndroidBridge && typeof window.AndroidBridge.onStatusUpdate === 'function') {\n" +
-        "                    window.AndroidBridge.onStatusUpdate('Clicking GET LINK (' + (delay/1000).toFixed(1) + 's)...');\n" +
-        "                }\n" +
+        "                _emit('STATUS', 'Clicking GET LINK (' + (delay/1000).toFixed(1) + 's)...');\n" +
         "                await new Promise(r => setTimeout(r, delay));\n" +
         "\n" +
-        "                if (window.AndroidBridge && typeof window.AndroidBridge.onGetLinkClicked === 'function') {\n" +
-        "                    window.AndroidBridge.onGetLinkClicked();\n" +
-        "                }\n" +
+        "                _emit('GETLINK');\n" +
         "\n" +
         "                var btn = document.getElementById('getLinkBtn');\n" +
         "                if (btn && isGetLinkReady()) {\n" +
@@ -352,9 +391,7 @@ public class MainActivity extends AppCompatActivity {
         "            var sg = q.get('sg') || h.get('sg') || '';\n" +
         "            if (!id) return;\n" +
         "            try {\n" +
-        "                if (window.AndroidBridge && typeof window.AndroidBridge.onStatusUpdate === 'function') {\n" +
-        "                    window.AndroidBridge.onStatusUpdate('Fallback: Decrypting destination link...');\n" +
-        "                }\n" +
+        "                _emit('STATUS', 'Fallback: Decrypting destination link...');\n" +
         "                const r = await fetch('https://go.urlking.in/api/d/p?id=' + encodeURIComponent(id) + '&_t=' + Date.now() + (sg ? '&token=' + encodeURIComponent(sg) : ''));\n" +
         "                const dp = await r.json().catch(() => ({}));\n" +
         "                if (dp && dp._v2_auth_sig) {\n" +
@@ -432,25 +469,8 @@ public class MainActivity extends AppCompatActivity {
         "                  } catch(e) {}\n" +
         "              };\n" +
         "\n" +
-        "        var H = document.getElementById('uk_ui_panel');\n" +
-        "        if (!H) {\n" +
-        "            H = document.createElement('div');\n" +
-        "            H.id = 'uk_ui_panel';\n" +
-        "            H.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:2147483647;width:300px;background:#0b1220;color:#e2e8f0;font:600 12px/1.5 ui-monospace,monospace;padding:14px 16px;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.55);border:1px solid #1e293b';\n" +
-        "            H.innerHTML = '<div style=\"font:800 11px system-ui;letter-spacing:.1em;color:#38bdf8\">URLKING SKIP</div><div id=\"ukm\" style=\"margin-top:6px;word-break:break-word\">Booting...</div><div style=\"height:6px;background:#1e293b;border-radius:99px;margin-top:10px;overflow:hidden\"><div id=\"ukb\" style=\"height:100%;width:0;background:linear-gradient(90deg,#22d3ee,#6366f1);transition:width .2s\"></div></div>';\n" +
-        "            (document.body || document.documentElement).appendChild(H);\n" +
-        "        }\n" +
-        "\n" +
         "        const M = t => {\n" +
-        "            const e = document.getElementById('ukm');\n" +
-        "            if (e) e.textContent = t;\n" +
-        "            if (window.AndroidBridge && typeof window.AndroidBridge.onStatusUpdate === 'function') {\n" +
-        "                window.AndroidBridge.onStatusUpdate(t);\n" +
-        "            }\n" +
-        "        };\n" +
-        "        const P = p => {\n" +
-        "            const e = document.getElementById('ukb');\n" +
-        "            if (e) e.style.width = Math.max(0, Math.min(100, p)) + '%';\n" +
+        "            _emit('STATUS', t);\n" +
         "        };\n" +
         "\n" +
         "        const id = h.get('id') || q.get('id') || q.get('link_id') ||\n" +
@@ -538,7 +558,6 @@ public class MainActivity extends AppCompatActivity {
         "        for (let g = 0; g < 80; g++) {\n" +
         "            pl = D(tok) || {};\n" +
         "            const req = pl.req | 0, n = pl.n | 0;\n" +
-        "            P(req ? (n / req * 100) : 5);\n" +
         "            if (req && n >= req) break;\n" +
         "            M('Step ' + (n + 1) + ' / ' + (req || '?') + ' - clearing...');\n" +
         "\n" +
@@ -573,11 +592,7 @@ public class MainActivity extends AppCompatActivity {
         "            return;\n" +
         "        }\n" +
         "\n" +
-        "        P(100);\n" +
-        "        M('Steps cleared. Loading get page...');\n" +
-        "        if (window.AndroidBridge && typeof window.AndroidBridge.onStatusUpdate === 'function') {\n" +
-        "            window.AndroidBridge.onStatusUpdate('Steps cleared. Opening GET LINK page...');\n" +
-        "        }\n" +
+        "        M('Steps cleared. Opening GET LINK page...');\n" +
         "        await sl(600);\n" +
         "        location.href = 'https://get.urlking.in/get?id=' + encodeURIComponent(id) + '&sg=' + encodeURIComponent(tok);\n" +
         "    })();\n" +
@@ -646,10 +661,11 @@ public class MainActivity extends AppCompatActivity {
         mainHandler.removeCallbacks(watchdogRunnable);
     }
 
-    public class WebAppInterface {
-        @JavascriptInterface
-        public void openDestination(String destinationUrl) {
-            if (destinationUrl == null || !destinationUrl.toLowerCase().contains("mediafire.com")) return;
+    private void handleJsBridgeEvent(String payload) {
+        if (payload == null) return;
+        if (payload.startsWith("DEST:")) {
+            String destinationUrl = payload.substring("DEST:".length());
+            if (!destinationUrl.toLowerCase().contains("mediafire.com")) return;
             mainHandler.post(() -> {
                 waitingForMediafire = false;
                 pendingDestinationUrl = destinationUrl;
@@ -665,10 +681,7 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }, 400);
             });
-        }
-
-        @JavascriptInterface
-        public void onGetLinkClicked() {
+        } else if (payload.equals("GETLINK")) {
             mainHandler.post(() -> {
                 waitingForMediafire = true;
                 disarmWatchdog();
@@ -682,11 +695,9 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }, 20000);
             });
-        }
-
-        @JavascriptInterface
-        public void onStatusUpdate(String status) {
-            runOnUiThread(() -> {
+        } else if (payload.startsWith("STATUS:")) {
+            String status = payload.substring("STATUS:".length());
+            mainHandler.post(() -> {
                 if (!isRotating && !isMediafireTriggering && !isResetting) {
                     if (!waitingForMediafire) {
                         armWatchdog();
@@ -746,9 +757,18 @@ public class MainActivity extends AppCompatActivity {
             WebSettingsCompat.setRequestedWithHeaderOriginAllowList(settings, Collections.emptySet());
         }
 
-        webView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
-
         webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onConsoleMessage(ConsoleMessage consoleMessage) {
+                if (consoleMessage != null && consoleMessage.message() != null) {
+                    String msg = consoleMessage.message();
+                    if (msg.startsWith("__UK_BR__:")) {
+                        handleJsBridgeEvent(msg.substring("__UK_BR__:".length()));
+                        return true;
+                    }
+                }
+                return super.onConsoleMessage(consoleMessage);
+            }
             @Override
             public void onProgressChanged(WebView view, int newProgress) {
                 if (newProgress < 100) {
