@@ -190,13 +190,15 @@ public class MainActivity extends AppCompatActivity {
         "        });\n" +
         "    } catch(e){}\n" +
         "\n" +
-        "    var destMediafireUrl = null;\n" +
         "    var isMediafireFound = false;\n" +
         "\n" +
         "    function isAdNetwork(u) {\n" +
         "        if (!u) return false;\n" +
         "        var l = (u + '').toLowerCase();\n" +
-        "        return l.indexOf('omg10.com') !== -1 || l.indexOf('popads') !== -1 || l.indexOf('adsterra') !== -1 || l.indexOf('monetag') !== -1;\n" +
+        "        return l.indexOf('omg10.com') !== -1 || l.indexOf('popads') !== -1 || l.indexOf('adsterra') !== -1 || " +
+        "l.indexOf('monetag') !== -1 || l.indexOf('propellerads') !== -1 || l.indexOf('hilltopads') !== -1 || " +
+        "l.indexOf('clickadu') !== -1 || l.indexOf('exoclick') !== -1 || l.indexOf('adtrue') !== -1 || " +
+        "l.indexOf('ey43.com') !== -1 || l.indexOf('doubleclick') !== -1 || l.indexOf('syndication') !== -1;\n" +
         "    }\n" +
         "\n" +
         "    function registerAdImpression(u) {\n" +
@@ -216,7 +218,6 @@ public class MainActivity extends AppCompatActivity {
         "        if (!url || isMediafireFound) return;\n" +
         "        if (url.indexOf('mediafire.com') !== -1) {\n" +
         "            isMediafireFound = true;\n" +
-        "            destMediafireUrl = url;\n" +
         "            if (window.AndroidBridge && typeof window.AndroidBridge.openDestination === 'function') {\n" +
         "                window.AndroidBridge.openDestination(url);\n" +
         "            }\n" +
@@ -653,11 +654,6 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @JavascriptInterface
-        public void onSearchGateDetected() {
-            runOnUiThread(MainActivity.this::triggerSearchGateReload);
-        }
-
-        @JavascriptInterface
         public void onGetLinkClicked() {
             mainHandler.post(() -> {
                 waitingForMediafire = true;
@@ -734,16 +730,6 @@ public class MainActivity extends AppCompatActivity {
         // Suppress X-Requested-With header so request headers match standalone Chrome
         if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
             WebSettingsCompat.setRequestedWithHeaderOriginAllowList(settings, Collections.emptySet());
-        }
-
-        // Initialize per-cycle paired device profile & User-Agent
-        rotateDeviceProfile();
-        try {
-            settings.setUserAgentString(activeProfile.ua);
-        } catch (Exception ignored) {
-            String baseUa = WebSettings.getDefaultUserAgent(this);
-            String cleanUa = baseUa.replace("; wv", "").replaceAll("Version/\\d+\\.\\d+\\s*", "");
-            settings.setUserAgentString(cleanUa);
         }
 
         webView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
@@ -867,7 +853,27 @@ public class MainActivity extends AppCompatActivity {
     private boolean isKnownRogueAdUrl(String url) {
         if (url == null) return false;
         String lower = url.toLowerCase();
-        return lower.contains("omg10.com") || lower.contains("popads") || lower.contains("adsterra") || lower.contains("monetag");
+        if (lower.contains("urlking.in") || lower.contains("mediafire.com") || lower.contains("google.")) {
+            return false;
+        }
+        return lower.contains("omg10.com") ||
+               lower.contains("popads") ||
+               lower.contains("adsterra") ||
+               lower.contains("bet365") ||
+               lower.contains("1xbet") ||
+               lower.contains("trafficjunky") ||
+               lower.contains("exoclick") ||
+               lower.contains("hilltopads") ||
+               lower.contains("propellerads") ||
+               lower.contains("clickadu") ||
+               lower.contains("monetag") ||
+               lower.contains("coinhive") ||
+               lower.contains("doubleclick") ||
+               lower.contains("adtrue") ||
+               lower.contains("syndication") ||
+               lower.contains("ey43.com") ||
+               lower.contains("ouo.io") ||
+               lower.contains("shrinkme.io");
     }
 
     @Override
@@ -1136,25 +1142,27 @@ public class MainActivity extends AppCompatActivity {
                 freshIp = fetchPublicIp();
             }
 
+            final boolean sameIpPersisted = !previousIp.isEmpty() && !previousIp.equals("...") &&
+                !previousIp.equals("Connected") && !previousIp.equals("Unknown") && freshIp.equals(previousIp);
             previousIp = freshIp;
             final String finalIp = freshIp;
 
             mainHandler.post(() -> {
                 currentIp = finalIp;
                 tvIp.setText("IP: " + finalIp);
-                Toast.makeText(MainActivity.this, "New IP Active!", Toast.LENGTH_SHORT).show();
-                tvStatus.setText("Cooling down 12s for fresh IP...");
+                Toast.makeText(MainActivity.this, sameIpPersisted ? "Same IP (cooling down 8s)..." : "New IP Active!", Toast.LENGTH_SHORT).show();
+                tvStatus.setText(sameIpPersisted ? "Same IP! Cooling down 8s..." : "Fresh IP ready...");
             });
 
-            // 12s cooldown in background thread so rate-limit & TCP pool clear cleanly
-            try { Thread.sleep(12000); } catch (InterruptedException ignored) {}
+            // Only apply long cooldown when carrier returned the exact same IP; otherwise clear TCP pool briefly
+            try { Thread.sleep(sameIpPersisted ? 8000 : 1200); } catch (InterruptedException ignored) {}
 
             mainHandler.post(() -> {
                 isRotating = false;
                 isMediafireTriggering = false;
                 setButtonsEnabled(true);
                 wipeSession();
-                mainHandler.postDelayed(() -> refreshIpAndLoad(true), 1500);
+                refreshIpAndLoad(true);
             });
         }).start();
     }
