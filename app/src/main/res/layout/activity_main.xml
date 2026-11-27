@@ -4,8 +4,8 @@
     android:layout_height="match_parent"
     android:background="#FFFFFF">
 
-    <!-- 100% Fullscreen WebView with standard white background -->
-    <WebView
+    <!-- 100% Fullscreen Background-Safe WebView with standard white background -->
+    <com.rabindra.urlking.BackgroundWebView
         android:id="@+id/webview"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
