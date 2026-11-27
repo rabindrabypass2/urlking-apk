@@ -1,10 +1,14 @@
 package com.rabindra.urlking;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.net.http.SslError;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -27,6 +31,8 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.webkit.WebSettingsCompat;
 import androidx.webkit.WebViewFeature;
 
@@ -164,6 +170,14 @@ public class MainActivity extends AppCompatActivity {
             "try{" +
             "var _td=HTMLCanvasElement.prototype.toDataURL;" +
             "HTMLCanvasElement.prototype.toDataURL=function(){try{var c=this.getContext('2d');if(c&&this.width>0&&this.height>0){var d=c.getImageData(0,0,Math.min(8,this.width),Math.min(8,this.height));if(d&&d.data.length>4){d.data[" + canvasCh + "]=(d.data[" + canvasCh + "]^" + canvasXor + ");c.putImageData(d,0,0);}}}catch(e){}return _td.apply(this,arguments);};" +
+            "}catch(e){}" +
+            "try{" +
+            "Object.defineProperty(document,'hidden',{get:function(){return false;},configurable:true});" +
+            "Object.defineProperty(document,'webkitHidden',{get:function(){return false;},configurable:true});" +
+            "Object.defineProperty(document,'visibilityState',{get:function(){return 'visible';},configurable:true});" +
+            "document.hasFocus=function(){return true;};" +
+            "var _wal=window.addEventListener;window.addEventListener=function(t,l,o){if(t==='visibilitychange'||t==='webkitvisibilitychange'||t==='pagehide')return;return _wal.call(this,t,l,o);};" +
+            "var _dal=document.addEventListener;document.addEventListener=function(t,l,o){if(t==='visibilitychange'||t==='webkitvisibilitychange'||t==='pagehide')return;return _dal.call(this,t,l,o);};" +
             "}catch(e){}" +
             "try{" +
             "if(window.AudioBuffer&&AudioBuffer.prototype.getChannelData){var _acd=AudioBuffer.prototype.getChannelData;AudioBuffer.prototype.getChannelData=function(){var r=_acd.apply(this,arguments);try{if(r&&r.length>0&&!r.__fp){r.__fp=true;r[0]=r[0]+" + audioDelta + ";}}catch(e){}return r;};}" +
@@ -844,10 +858,22 @@ public class MainActivity extends AppCompatActivity {
         btnReload.setOnClickListener(v -> refreshIpAndLoad(true));
 
         checkRootAccess();
+        startKeepAliveService();
 
         tvStatus.setTextColor(Color.parseColor("#00E676"));
         tvStatus.setText("Loading...");
         refreshIpAndLoad(true);
+    }
+
+    private void startKeepAliveService() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, 101);
+                }
+            }
+            ContextCompat.startForegroundService(this, new Intent(this, KeepAliveService.class));
+        } catch (Exception ignored) {}
     }
 
     private boolean isKnownRogueAdUrl(String url) {
@@ -880,7 +906,15 @@ public class MainActivity extends AppCompatActivity {
     protected void onPause() {
         super.onPause();
         if (webView != null) {
-            webView.pauseTimers();
+            webView.resumeTimers();
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (webView != null) {
+            webView.resumeTimers();
         }
     }
 
@@ -895,6 +929,11 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         disarmWatchdog();
+        if (isFinishing()) {
+            try {
+                stopService(new Intent(this, KeepAliveService.class));
+            } catch (Exception ignored) {}
+        }
         try {
             if (wakeLock != null && wakeLock.isHeld()) {
                 wakeLock.release();
@@ -1050,7 +1089,8 @@ public class MainActivity extends AppCompatActivity {
     private void checkRootAccess() {
         new Thread(() -> {
             try {
-                runRootCommand("dumpsys deviceidle whitelist +" + getPackageName());
+                String pkg = getPackageName();
+                runRootCommand("dumpsys deviceidle whitelist +" + pkg + "; cmd appops set " + pkg + " RUN_IN_BACKGROUND allow; cmd appops set " + pkg + " RUN_ANY_IN_BACKGROUND allow");
             } catch (Exception ignored) {}
         }).start();
     }
